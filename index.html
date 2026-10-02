@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bússola de Gastos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600&display=swap">
+<style>
+/* Layout: barra de controles fixa no topo, abas; painel = resumo (números) antes do detalhe (gráficos, tabelas). */
+:root {
+  --bg: #f6f7f5;
+  --surface: #fdfdfc;
+  --surface-2: #eff1ee;
+  --ink: #101412;
+  --ink-2: #4c524e;
+  --muted: #7f857f;
+  --line: #dfe2dd;
+  --axis: #c3c7c1;
+  --accent: #1f6f5c;
+  --accent-ink: #ffffff;
+  --s-real: #2a78d6;
+  --s-prev: #eb6834;
+  --s-meta: #101412;
+  --c1: #2a78d6; --c2: #eb6834; --c3: #1baf7a; --c4: #eda100;
+  --c5: #e87ba4; --c6: #008300; --c7: #4a3aa7; --c8: #a3a69f;
+  --good: #0a7d0a; --warn: #a86f00; --bad: #c03030;
+  --good-bg: #e3f2e1; --warn-bg: #fbf0d6; --bad-bg: #fbe3e1;
+  --font-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --font-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --radius: 10px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1211; --surface: #181b1a; --surface-2: #212524; --ink: #f3f5f3; --ink-2: #c1c6c1;
+    --muted: #8a908a; --line: #2c312f; --axis: #3b413e; --accent: #4fb89b; --accent-ink: #08130f;
+    --s-real: #3987e5; --s-prev: #d95926; --s-meta: #f3f5f3;
+    --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300; --c7: #9085e9; --c8: #6c716d;
+    --good: #3fc23f; --warn: #f0b429; --bad: #ef6b6b; --good-bg: #16301a; --warn-bg: #352a10; --bad-bg: #3a1a1a;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1211; --surface: #181b1a; --surface-2: #212524; --ink: #f3f5f3; --ink-2: #c1c6c1;
+  --muted: #8a908a; --line: #2c312f; --axis: #3b413e; --accent: #4fb89b; --accent-ink: #08130f;
+  --s-real: #3987e5; --s-prev: #d95926; --s-meta: #f3f5f3;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500; --c5: #d55181; --c6: #008300; --c7: #9085e9; --c8: #6c716d;
+  --good: #3fc23f; --warn: #f0b429; --bad: #ef6b6b; --good-bg: #16301a; --warn-bg: #352a10; --bad-bg: #3a1a1a;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--font-body); }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 0 48px; }
+
+header.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bg); border-bottom: 1px solid var(--line); }
+.top-inner { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 12px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+.brand { display: flex; align-items: baseline; gap: 10px; margin-right: auto; }
+.brand h1 { font: 700 22px/1.1 var(--font-display); margin: 0; letter-spacing: -0.01em; }
+.brand span { color: var(--muted); font-size: 13px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.field { display: flex; flex-direction: column; gap: 2px; }
+.field label, .eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+select, input[type="text"], input[type="number"], input[type="search"] {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 36px;
+}
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 12px; min-height: 36px; cursor: pointer; font-weight: 500; white-space: nowrap; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.small { min-height: 30px; padding: 3px 10px; font-size: 13px; }
+
+nav.tabs { display: flex; gap: 4px; padding-block: 16px 8px; overflow-x: auto; }
+nav.tabs button { border: 0; background: none; padding: 8px 14px; border-radius: 999px; cursor: pointer; color: var(--ink-2); font-weight: 600; white-space: nowrap; }
+nav.tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); }
+
+.notice { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 16px; margin-block: 8px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; color: var(--ink-2); }
+.notice strong { color: var(--ink); }
+
+.crumbs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-block: 8px 4px; font-size: 14px; color: var(--ink-2); }
+.crumbs button { border: 0; background: none; padding: 0; color: var(--accent); cursor: pointer; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-block: 12px; }
+.kpi { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.kpi .v { font: 700 26px/1.15 var(--font-display); letter-spacing: -0.01em; }
+.kpi .sub { font-size: 13px; color: var(--ink-2); }
+.swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+
+.grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; min-width: 0; }
+.panel h2 { font: 600 17px/1.25 var(--font-display); margin: 0 0 2px; text-wrap: balance; }
+.panel .hint { font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+.span-12 { grid-column: span 12; } .span-7 { grid-column: span 7; } .span-5 { grid-column: span 5; }
+@media (max-width: 900px) { .span-7, .span-5 { grid-column: span 12; } }
+.chart-box { position: relative; width: 100%; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--ink-2); margin-bottom: 8px; }
+.legend .tick { display: inline-block; width: 3px; height: 12px; background: var(--s-meta); margin-right: 6px; vertical-align: -1px; }
+
+.actions { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.actions li { display: grid; grid-template-columns: 1fr auto; gap: 2px 12px; padding: 10px 12px; border-radius: 8px; background: var(--surface-2); }
+.actions .nm { font-weight: 600; min-width: 0; }
+.actions .ct { font-size: 12px; color: var(--muted); }
+.actions .amt { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.pill.good { background: var(--good-bg); color: var(--good); }
+.pill.warn { background: var(--warn-bg); color: var(--warn); }
+.pill.bad { background: var(--bad-bg); color: var(--bad); }
+.pill.none { background: var(--surface-2); color: var(--muted); }
+.flag { font-size: 11px; font-weight: 600; color: var(--warn); background: var(--warn-bg); border-radius: 4px; padding: 0 5px; margin-left: 6px; white-space: nowrap; }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
+th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; background: var(--surface); position: sticky; top: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.cat-row td { background: var(--surface-2); font-weight: 600; }
+tr.cat-row button.toggle { border: 0; background: none; cursor: pointer; font-weight: 700; padding: 0 6px 0 0; }
+td input[type="number"] { width: 110px; text-align: right; min-height: 32px; padding: 4px 8px; }
+td input[type="text"] { width: 100%; min-width: 140px; min-height: 32px; padding: 4px 8px; }
+.bar { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); min-width: 90px; overflow: hidden; }
+.bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; }
+.bar.good > i { background: var(--good); } .bar.warn > i { background: var(--warn); } .bar.bad > i { background: var(--bad); }
+.cell-prog { display: flex; align-items: center; gap: 8px; }
+.sub-btn { border: 1px dashed var(--axis); background: none; border-radius: 6px; padding: 2px 8px; cursor: pointer; text-align: left; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin-bottom: 12px; }
+.toolbar .grow { flex: 1 1 220px; }
+.toolbar .grow input { width: 100%; }
+.check { display: inline-flex; gap: 6px; align-items: center; font-size: 14px; color: var(--ink-2); }
+.empty { text-align: center; padding: 48px 16px; color: var(--ink-2); }
+.empty h2 { font: 700 24px/1.2 var(--font-display); color: var(--ink); margin: 0 0 8px; }
+.muted { color: var(--muted); }
+.toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-weight: 500; z-index: 50; max-width: calc(100% - 32px); }
+.foot { margin-top: 24px; font-size: 13px; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><h1>Bússola de Gastos</h1><span id="source-label"></span></div>
+    <div class="controls">
+      <div class="field"><label for="period">Período</label><select id="period"></select></div>
+      <button class="btn primary" id="btn-import" type="button">Importar planilha</button>
+      <input type="file" id="file-xlsx" accept=".xlsx,.xls,.csv" hidden>
+      <button class="btn" id="btn-export" type="button">Salvar backup</button>
+      <button class="btn" id="btn-restore" type="button">Restaurar backup</button>
+      <input type="file" id="file-json" accept=".json" hidden>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="overview" aria-selected="true">Visão geral</button>
+    <button role="tab" data-tab="plan" aria-selected="false">Previsto e metas</button>
+    <button role="tab" data-tab="tx" aria-selected="false">Lançamentos</button>
+    <button role="tab" data-tab="cats" aria-selected="false">Categorias</button>
+  </nav>
+  <div id="banner"></div>
+  <div class="empty" id="empty" hidden><h2>Importe sua planilha para começar</h2><p>Use o arquivo .xlsx exportado pelo Money Pro (colunas Category, Amount, Date, Account, Description).</p><button class="btn primary" type="button" id="btn-import-2">Importar planilha</button></div>
+
+  <section id="tab-overview">
+    <div class="crumbs" id="crumbs"></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="grid">
+      <div class="panel span-7">
+        <h2>Mês a mês</h2>
+        <p class="hint">Previsto, realizado e meta de cada mês. Clique num mês para focar nele.</p>
+        <div class="legend"><span><i class="swatch" style="background:var(--s-prev)"></i>Previsto</span><span><i class="swatch" style="background:var(--s-real)"></i>Realizado</span><span><i class="tick"></i>Meta</span></div>
+        <div class="chart-box" style="height:280px"><canvas id="ch-month" aria-label="Gráfico mês a mês"></canvas></div>
+      </div>
+      <div class="panel span-5">
+        <h2>Onde agir</h2>
+        <p class="hint" id="actions-hint"></p>
+        <ul class="actions" id="actions"></ul>
+      </div>
+      <div class="panel span-12">
+        <h2 id="cat-title">Por categoria</h2>
+        <p class="hint">Barra = realizado no período; traço = meta. Clique numa categoria para ver as subcategorias.</p>
+        <div class="legend"><span><i class="swatch" style="background:var(--s-real)"></i>Realizado</span><span><i class="tick"></i>Meta</span></div>
+        <div class="chart-box" id="cat-box"><canvas id="ch-cat" aria-label="Gastos por categoria"></canvas></div>
+      </div>
+      <div class="panel span-12">
+        <h2>Composição por mês</h2>
+        <p class="hint">As maiores categorias têm cor própria; o resto entra em “Outras”.</p>
+        <div class="legend" id="stack-legend"></div>
+        <div class="chart-box" style="height:300px"><canvas id="ch-stack" aria-label="Composição dos gastos por mês"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-plan" hidden>
+    <div class="panel">
+      <h2>Previsto e metas por subcategoria</h2>
+      <p class="hint"><strong>Previsto</strong> é quanto você espera gastar no mês. <strong>Meta</strong> é o teto que você quer respeitar. <strong>Realizado</strong> vem dos lançamentos. Os valores são mensais; a soma de uma categoria é a soma das subcategorias.</p>
+      <div class="toolbar">
+        <div class="field"><label for="plan-scope">Editar valores de</label><select id="plan-scope"></select></div>
+        <div class="field"><label for="sug-pct">Corte sugerido na meta</label><select id="sug-pct"><option value="0">0% (manter a média)</option><option value="5">5%</option><option value="10" selected>10%</option><option value="15">15%</option><option value="20">20%</option><option value="30">30%</option></select></div>
+        <button class="btn" id="btn-suggest" type="button">Sugerir a partir da média</button>
+        <label class="check"><input type="checkbox" id="sug-overwrite"> substituir valores já preenchidos</label>
+      </div>
+      <div class="toolbar">
+        <div class="field"><label for="new-cat">Nova subcategoria: categoria</label><input type="text" id="new-cat" list="dl-cats" placeholder="ex.: Investimentos"></div>
+        <div class="field"><label for="new-sub">Subcategoria</label><input type="text" id="new-sub" placeholder="ex.: Reserva de emergência"></div>
+        <button class="btn" id="btn-add-sub" type="button">Adicionar</button>
+      </div>
+      <div class="table-wrap"><table id="plan-table"></table></div>
+    </div>
+  </section>
+
+  <section id="tab-tx" hidden>
+    <div class="panel">
+      <div class="toolbar">
+        <div class="field grow"><label for="tx-search">Buscar</label><input type="search" id="tx-search" placeholder="Descrição, conta, categoria…"></div>
+        <div class="field"><label for="tx-cat">Categoria</label><select id="tx-cat"></select></div>
+        <label class="check"><input type="checkbox" id="tx-review"> só “REVISAR CATEGORIA”</label>
+      </div>
+      <p class="hint" id="tx-summary"></p>
+      <div class="table-wrap"><table id="tx-table"></table></div>
+      <div style="margin-top:12px"><button class="btn" id="tx-more" type="button" hidden>Mostrar mais</button></div>
+    </div>
+  </section>
+
+  <section id="tab-cats" hidden>
+    <div class="panel">
+      <h2>Categorias e subcategorias</h2>
+      <p class="hint">Cada categoria da planilha (coluna <em>Category</em>) vira uma subcategoria dentro de uma categoria principal. Edite os nomes para reorganizar; o mesmo nome agrupa. Categorias no formato “Grupo | Item” já entram separadas.</p>
+      <div class="toolbar"><button class="btn" id="btn-reset-map" type="button">Voltar à sugestão automática</button></div>
+      <div class="table-wrap"><table id="map-table"></table></div>
+    </div>
+  </section>
+
+  <p class="foot">Os dados ficam só neste navegador. Use “Salvar backup” para guardar metas e categorias num arquivo.</p>
+</main>
+<datalist id="dl-cats"></datalist>
+<div class="toast" id="toast" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+"use strict";
+const STORE_KEY = "bussola-gastos-v1";
+const SEP = " › ";
+const UNCAT = { cat: "A classificar", sub: "Sem categoria" };
+
+// Sugestão inicial de agrupamento das categorias do Money Pro.
+// Qualquer categoria fora desta lista vai para "Outros" e pode ser movida na aba Categorias.
+const DEFAULT_GROUPS = {
+  "Moradia": ["Aluguel", "Condomínio", "Luz", "Água", "Gás", "Internet e Celular", "Coisas pra casa", "Empregados domésticos", "Manutenção"],
+  "Alimentação": ["Supermercado", "Bares, Restaurantes e Jantares", "Delivery", "Congelados", "Padaria", "Outros Alimentação"],
+  "Transporte": ["Combustível", "Estacionamentos e garagens", "Pedágio", "Táxi/Uber", "Seguro do carro", "Manutenção do carro", "IPVA"],
+  "Saúde": ["Médicos, dentistas e terapeutas", "Plano/Seguro de saúde", "Farmácia", "Academia"],
+  "Cuidados pessoais": ["Estética em geral", "Roupas / Calçados"],
+  "Lazer": ["Cinema/Teatro", "Viagens", "Jogos", "Apostas", "Rifas e Apostas", "Presentes", "Shows e eventos"],
+  "Assinaturas e tecnologia": ["Streaming", "Apps e Gadgets", "Eletrônicos e Gadgets"],
+  "Educação": ["Cursos", "Livros"],
+  "Pets": ["Despesas com animais"],
+  "Outros": ["Doações", "Impostos", "Tarifas bancárias"],
+};
+const GROUP_OF = {};
+for (const [cat, subs] of Object.entries(DEFAULT_GROUPS)) for (const s of subs) GROUP_OF[s.toLowerCase()] = cat;
+
+function titleCase(s) { return s.toLowerCase().replace(/(^|\s)\p{L}/gu, m => m.toUpperCase()); }
+function guessMap(src) {
+  if (!src) return { ...UNCAT };
+  if (src.includes("|")) {
+    const [a, ...rest] = src.split("|");
+    return { cat: titleCase(a.trim()), sub: rest.join("|").trim() || "Geral" };
+  }
+  return { cat: GROUP_OF[src.toLowerCase()] || "Outros", sub: src };
+}
+
+// ---------- estado ----------
+function emptyState() {
+  return { tx: [], map: {}, txCat: {}, plan: { base: {}, months: {} }, extraSubs: [], source: "", ui: { tab: "overview", period: "all", cat: null, collapsed: {} } };
+}
+let S = emptyState();
+function load() {
+  try { const raw = localStorage.getItem(STORE_KEY); if (raw) { S = Object.assign(emptyState(), JSON.parse(raw)); S.ui = Object.assign(emptyState().ui, S.ui); return true; } } catch (e) {}
+  return false;
+}
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); } catch (e) {} }
+
+// ---------- utilidades ----------
+const BRL = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const BRL0 = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const fmt = v => v == null ? "—" : BRL.format(v);
+const fmt0 = v => v == null ? "—" : BRL0.format(v);
+const MONTHS_PT = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+const monthLabel = m => { const [y, mo] = m.split("-"); return MONTHS_PT[+mo - 1] + "/" + y.slice(2); };
+const monthLong = m => { const [y, mo] = m.split("-"); return ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"][+mo - 1] + " de " + y; };
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const css = name => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+const keyOf = (cat, sub) => cat + SEP + sub;
+const splitKey = k => { const i = k.indexOf(SEP); return { cat: k.slice(0, i), sub: k.slice(i + SEP.length) }; };
+function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 3200); }
+function parseNum(v) {
+  if (typeof v === "number") return v;
+  if (v == null || v === "") return NaN;
+  let s = String(v).replace(/[R$\s]/g, "").replace("−", "-");
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  return parseFloat(s);
+}
+function toISODate(v) {
+  if (v instanceof Date) return new Date(v.getTime() - v.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+  if (typeof v === "number") { const d = XLSX.SSF.parse_date_code(v); return `${d.y}-${String(d.m).padStart(2, "0")}-${String(d.d).padStart(2, "0")}`; }
+  const s = String(v || "").trim();
+  let m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/); if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`;
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/); if (m) return m[0];
+  return null;
+}
+
+// ---------- importação ----------
+const COLS = {
+  cat: ["category", "categoria"], amount: ["amount", "valor", "montante"], date: ["date", "data"],
+  account: ["account", "conta"], to: ["account (to)", "conta (para)", "conta destino"], desc: ["description", "descrição", "descricao", "histórico"],
+};
+function pick(row, names) {
+  for (const k of Object.keys(row)) if (names.includes(k.trim().toLowerCase())) return row[k];
+  return null;
+}
+function parseRows(rows) {
+  const out = [], seen = {};
+  for (const r of rows) {
+    if (pick(r, COLS.to)) continue; // transferência entre contas
+    const amount = parseNum(pick(r, COLS.amount)); const date = toISODate(pick(r, COLS.date));
+    if (!isFinite(amount) || !date || amount === 0) continue;
+    const src = (pick(r, COLS.cat) || "").toString().trim();
+    const desc = (pick(r, COLS.desc) || "").toString().trim();
+    const account = (pick(r, COLS.account) || "").toString().trim();
+    const base = [date, amount, src, account, desc].join("|");
+    seen[base] = (seen[base] || 0) + 1;
+    out.push({ id: base + "#" + seen[base], date, value: Math.round(-amount * 100) / 100, src, account, desc });
+  }
+  // categorias com saldo positivo são receitas: ficam fora da análise de despesas
+  const net = {};
+  for (const t of out) net[t.src] = (net[t.src] || 0) + t.value;
+  const income = Object.keys(net).filter(k => net[k] < 0);
+  return { tx: out.filter(t => !income.includes(t.src)), income };
+}
+function ingest(tx, sourceName) {
+  const months = new Set(tx.map(t => t.date.slice(0, 7)));
+  const kept = S.tx.filter(t => !months.has(t.date.slice(0, 7)));
+  S.tx = kept.concat(tx).sort((a, b) => a.date.localeCompare(b.date));
+  for (const t of tx) if (!(t.src in S.map)) S.map[t.src] = guessMap(t.src);
+  S.source = sourceName;
+  if (S.ui.period !== "all" && !allMonths().includes(S.ui.period)) S.ui.period = "all";
+  save(); renderAll();
+}
+async function importFile(file) {
+  try {
+    const buf = await file.arrayBuffer();
+    const wb = XLSX.read(buf, { type: "array", cellDates: true });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: null, raw: true });
+    const { tx, income } = parseRows(rows);
+    if (!tx.length) { toast("Não encontrei despesas. A planilha precisa das colunas Category, Amount e Date."); return; }
+    ingest(tx, file.name);
+    toast(`${tx.length} despesas importadas` + (income.length ? ` (receitas ignoradas: ${income.join(", ")})` : ""));
+  } catch (e) { console.error(e); toast("Não consegui ler o arquivo. Use o .xlsx exportado pelo Money Pro."); }
+}
+
+// ---------- agregações ----------
+function allMonths() { return [...new Set(S.tx.map(t => t.date.slice(0, 7)))].sort(); }
+function periodMonths() { return S.ui.period === "all" ? allMonths() : [S.ui.period]; }
+function txKey(t) { if (S.txCat[t.id]) return S.txCat[t.id]; const m = S.map[t.src] || guessMap(t.src); return keyOf(m.cat, m.sub); }
+function allSubKeys() {
+  const set = new Set(S.extraSubs);
+  for (const t of S.tx) set.add(txKey(t));
+  for (const k of Object.keys(S.plan.base)) set.add(k);
+  return [...set];
+}
+function catsOf(keys) { return [...new Set(keys.map(k => splitKey(k).cat))]; }
+function realByMonthKey() {
+  const r = {};
+  for (const t of S.tx) { const m = t.date.slice(0, 7), k = txKey(t); (r[m] ||= {})[k] = (r[m][k] || 0) + t.value; }
+  return r;
+}
+function planVal(k, m, field) {
+  const o = S.plan.months[m]?.[k]?.[field];
+  if (o != null && o !== "") return +o;
+  const b = S.plan.base[k]?.[field];
+  return b != null && b !== "" ? +b : null;
+}
+// soma previsto/realizado/meta de um conjunto de subcategorias nos meses dados
+function totals(keys, months, R) {
+  let real = 0, prev = null, meta = null, metaReal = 0;
+  for (const m of months) for (const k of keys) {
+    real += R[m]?.[k] || 0;
+    const p = planVal(k, m, "prev"); if (p != null) prev = (prev || 0) + p;
+    const g = planVal(k, m, "meta"); if (g != null) { meta = (meta || 0) + g; metaReal += R[m]?.[k] || 0; }
+  }
+  return { real, prev, meta, metaReal };
+}
+function status(real, meta) {
+  if (meta == null) return { cls: "none", label: "sem meta", icon: "○" };
+  if (meta <= 0) return real > 0 ? { cls: "bad", label: "acima da meta", icon: "▲" } : { cls: "good", label: "dentro da meta", icon: "✓" };
+  const r = real / meta;
+  if (r > 1) return { cls: "bad", label: "acima da meta", icon: "▲" };
+  if (r > 0.9) return { cls: "warn", label: "no limite", icon: "!" };
+  return { cls: "good", label: "dentro da meta", icon: "✓" };
+}
+const pill = st => `<span class="pill ${st.cls}"><span aria-hidden="true">${st.icon}</span>${st.label}</span>`;
+
+// ---------- render ----------
+const charts = {};
+function chartDefaults() {
+  Chart.defaults.font.family = css("--font-body");
+  Chart.defaults.font.size = 12;
+  Chart.defaults.color = css("--muted");
+  Chart.defaults.borderColor = css("--line");
+}
+function tooltipOpts() {
+  return {
+    backgroundColor: css("--ink"), titleColor: css("--bg"), bodyColor: css("--bg"), padding: 10, cornerRadius: 6, boxPadding: 4,
+    callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.raw)}` },
+  };
+}
+function mkChart(id, cfg) { if (charts[id]) charts[id].destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
+
+function renderControls() {
+  const months = allMonths();
+  const sel = document.getElementById("period");
+  sel.innerHTML = `<option value="all">${months.length ? "Todos os meses (" + months.length + ")" : "Todos"}</option>` + months.map(m => `<option value="${m}">${monthLong(m)}</option>`).join("");
+  sel.value = S.ui.period;
+  document.getElementById("source-label").textContent = S.source ? S.source : "";
+  const scope = document.getElementById("plan-scope");
+  const cur = scope.value || "base";
+  scope.innerHTML = `<option value="base">Todo mês (padrão)</option>` + months.map(m => `<option value="${m}">Só ${monthLong(m)}</option>`).join("");
+  scope.value = [...scope.options].some(o => o.value === cur) ? cur : "base";
+  const cats = catsOf(allSubKeys()).sort((a, b) => a.localeCompare(b, "pt"));
+  document.getElementById("dl-cats").innerHTML = cats.map(c => `<option value="${esc(c)}">`).join("");
+  const txc = document.getElementById("tx-cat"); const tv = txc.value;
+  txc.innerHTML = `<option value="">Todas</option>` + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  txc.value = cats.includes(tv) ? tv : "";
+}
+
+function renderBanner() {
+  const b = document.getElementById("banner");
+  const review = S.tx.filter(t => /REVISAR CATEGORIA/i.test(t.desc)).length;
+  const uncat = S.tx.filter(t => txKey(t) === keyOf(UNCAT.cat, UNCAT.sub)).length;
+  const parts = [];
+  if (S.isExample) parts.push(`<strong>Dados de exemplo.</strong> Importe sua planilha do Money Pro para ver os seus gastos.`);
+  if (review) parts.push(`<span><strong>${review}</strong> lançamentos marcados “REVISAR CATEGORIA”.</span>`);
+  if (uncat) parts.push(`<span><strong>${uncat}</strong> sem categoria.</span>`);
+  b.innerHTML = parts.length ? `<div class="notice">${parts.join("")}${(review || uncat) && !S.isExample ? `<button class="btn small" data-go-review type="button">Revisar agora</button>` : ""}</div>` : "";
+}
+
+function renderOverview() {
+  const R = realByMonthKey(), months = periodMonths(), keysAll = allSubKeys();
+  const drill = S.ui.cat && catsOf(keysAll).includes(S.ui.cat) ? S.ui.cat : null; S.ui.cat = drill;
+  const keys = drill ? keysAll.filter(k => splitKey(k).cat === drill) : keysAll;
+  const periodTxt = S.ui.period === "all" ? `${months.length} meses` : monthLong(S.ui.period);
+
+  document.getElementById("crumbs").innerHTML = drill
+    ? `<button type="button" data-drill="">Todas as categorias</button><span>›</span><strong>${esc(drill)}</strong><span class="muted">· ${periodTxt}</span>`
+    : `<strong>Todas as categorias</strong><span class="muted">· ${periodTxt}</span>`;
+
+  // KPIs
+  const T = totals(keys, months, R);
+  const avg = T.real / Math.max(1, months.length);
+  const st = status(T.metaReal, T.meta);
+  const diff = T.meta != null ? T.meta - T.metaReal : null;
+  document.getElementById("kpis").innerHTML = `
+    <div class="kpi"><span class="eyebrow"><i class="swatch" style="background:var(--s-real)"></i>Realizado</span><span class="v">${fmt0(T.real)}</span><span class="sub">${months.length > 1 ? "média " + fmt0(avg) + "/mês" : S.tx.filter(t => months.includes(t.date.slice(0, 7)) && keys.includes(txKey(t))).length + " lançamentos"}</span></div>
+    <div class="kpi"><span class="eyebrow"><i class="swatch" style="background:var(--s-prev)"></i>Previsto</span><span class="v">${fmt0(T.prev)}</span><span class="sub">${T.prev == null ? "preencha em “Previsto e metas”" : (T.real > T.prev ? "gastou " + fmt0(T.real - T.prev) + " a mais" : "gastou " + fmt0(T.prev - T.real) + " a menos")}</span></div>
+    <div class="kpi"><span class="eyebrow">Meta</span><span class="v">${fmt0(T.meta)}</span><span class="sub">${pill(st)}</span></div>
+    <div class="kpi"><span class="eyebrow">Folga até a meta</span><span class="v" style="color:${diff == null ? "inherit" : diff < 0 ? "var(--bad)" : "var(--good)"}">${diff == null ? "—" : (diff < 0 ? "−" : "") + fmt0(Math.abs(diff))}</span><span class="sub">${diff == null ? "sem metas definidas" : "nas subcategorias com meta"}</span></div>`;
+
+  // Mês a mês (sempre todos os meses; o mês selecionado fica destacado)
+  const am = allMonths();
+  const mt = am.map(m => totals(keys, [m], R));
+  const sel = S.ui.period;
+  const dim = (c, i) => sel === "all" || am[i] === sel ? c : c + "55";
+  mkChart("ch-month", {
+    data: {
+      labels: am.map(monthLabel),
+      datasets: [
+        { type: "bar", label: "Previsto", data: mt.map(x => x.prev), backgroundColor: am.map((_, i) => dim(css("--s-prev"), i)), borderRadius: 4, borderSkipped: "start", maxBarThickness: 36, order: 2 },
+        { type: "bar", label: "Realizado", data: mt.map(x => x.real), backgroundColor: am.map((_, i) => dim(css("--s-real"), i)), borderRadius: 4, borderSkipped: "start", maxBarThickness: 36, order: 2 },
+        { type: "line", label: "Meta", data: mt.map(x => x.meta), borderColor: css("--s-meta"), backgroundColor: css("--s-meta"), borderWidth: 2, pointRadius: 5, pointHoverRadius: 7, pointBorderColor: css("--surface"), pointBorderWidth: 2, spanGaps: true, order: 1 },
+      ],
+    },
+    options: {
+      maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+      plugins: { legend: { display: false }, tooltip: tooltipOpts() },
+      scales: { x: { grid: { display: false }, border: { color: css("--axis") } }, y: { beginAtZero: true, border: { display: false }, ticks: { callback: v => fmt0(v) } } },
+      onClick: (e, els) => { if (els.length) { const m = am[els[0].index]; S.ui.period = S.ui.period === m ? "all" : m; save(); renderAll(); } },
+      onHover: (e, els) => e.native.target.style.cursor = els.length ? "pointer" : "default",
+    },
+  });
+
+  // Por categoria / subcategoria
+  const groups = drill
+    ? keys.map(k => ({ name: splitKey(k).sub, keys: [k] }))
+    : catsOf(keys).map(c => ({ name: c, keys: keys.filter(k => splitKey(k).cat === c) }));
+  const rows = groups.map(g => ({ ...g, ...totals(g.keys, months, R) })).filter(g => g.real !== 0 || g.meta != null).sort((a, b) => b.real - a.real);
+  document.getElementById("cat-title").textContent = drill ? `Subcategorias de ${drill}` : "Por categoria";
+  document.getElementById("cat-box").style.height = Math.max(160, rows.length * 30 + 40) + "px";
+  mkChart("ch-cat", {
+    data: {
+      labels: rows.map(r => r.name),
+      datasets: [
+        { type: "bar", label: "Realizado", data: rows.map(r => r.real), backgroundColor: css("--s-real"), borderRadius: 4, borderSkipped: "start", barPercentage: 0.75, categoryPercentage: 0.9, order: 2 },
+        { type: "line", label: "Meta", data: rows.map(r => r.meta), showLine: false, pointStyle: "line", rotation: 90, pointRadius: 11, pointHoverRadius: 13, borderWidth: 3, borderColor: css("--s-meta"), order: 1 },
+      ],
+    },
+    options: {
+      indexAxis: "y", maintainAspectRatio: false, interaction: { mode: "index", intersect: false, axis: "y" },
+      plugins: {
+        legend: { display: false },
+        tooltip: { ...tooltipOpts(), callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.raw)}`, afterBody: items => { const r = rows[items[0].dataIndex]; return r.meta != null ? [" " + status(r.metaReal, r.meta).label] : []; } } },
+      },
+      scales: { x: { beginAtZero: true, border: { display: false }, ticks: { callback: v => fmt0(v), maxTicksLimit: innerWidth < 600 ? 4 : 8, maxRotation: 0 } }, y: { grid: { display: false }, border: { color: css("--axis") }, ticks: { color: css("--ink-2"), autoSkip: false } } },
+      onClick: (e, els) => { if (!drill && els.length) { S.ui.cat = rows[els[0].index].name; save(); renderOverview(); } },
+      onHover: (e, els) => e.native.target.style.cursor = !drill && els.length ? "pointer" : "default",
+    },
+  });
+
+  // Composição por mês: top 7 + Outras, cores fixas pela ordem do total geral
+  const slots = ["--c1", "--c2", "--c3", "--c4", "--c5", "--c6", "--c7"];
+  const allGroups = groups.map(g => ({ ...g, total: totals(g.keys, am, R).real })).filter(g => g.total > 0).sort((a, b) => b.total - a.total);
+  const top = allGroups.slice(0, 7), rest = allGroups.slice(7);
+  const series = top.map((g, i) => ({ label: g.name, keys: g.keys, color: css(slots[i]) }));
+  if (rest.length) series.push({ label: "Outras", keys: rest.flatMap(g => g.keys), color: css("--c8") });
+  document.getElementById("stack-legend").innerHTML = series.map(s => `<span><i class="swatch" style="background:${s.color}"></i>${esc(s.label)}</span>`).join("");
+  mkChart("ch-stack", {
+    type: "bar",
+    data: { labels: am.map(monthLabel), datasets: series.map(s => ({ label: s.label, data: am.map(m => totals(s.keys, [m], R).real), backgroundColor: s.color, borderColor: css("--surface"), borderWidth: { top: 2 }, borderSkipped: false, maxBarThickness: 64 })) },
+    options: {
+      maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
+      plugins: { legend: { display: false }, tooltip: { ...tooltipOpts(), itemSort: (a, b) => b.raw - a.raw, footer: items => " Total: " + fmt(items.reduce((s, i) => s + i.raw, 0)) } },
+      scales: { x: { stacked: true, grid: { display: false }, border: { color: css("--axis") } }, y: { stacked: true, beginAtZero: true, border: { display: false }, ticks: { callback: v => fmt0(v) } } },
+    },
+  });
+
+  // Onde agir
+  const subRows = keys.map(k => ({ k, ...splitKey(k), ...totals([k], months, R) }));
+  const over = subRows.filter(r => r.meta != null && r.metaReal > r.meta).sort((a, b) => (b.metaReal - b.meta) - (a.metaReal - a.meta)).slice(0, 5);
+  const noMeta = subRows.filter(r => r.meta == null && r.real > 0).sort((a, b) => b.real - a.real).slice(0, 5 - Math.min(over.length, 3));
+  const items = over.map(r => `<li><span class="nm">${esc(r.sub)}</span><span class="amt" style="color:var(--bad)">+${fmt0(r.metaReal - r.meta)}</span><span class="ct">${esc(r.cat)} · realizado ${fmt0(r.metaReal)} de ${fmt0(r.meta)}</span><span>${pill(status(r.metaReal, r.meta))}</span></li>`)
+    .concat(noMeta.map(r => `<li><span class="nm">${esc(r.sub)}</span><span class="amt">${fmt0(r.real)}</span><span class="ct">${esc(r.cat)} · ${months.length > 1 ? "média " + fmt0(r.real / months.length) + "/mês" : "no mês"}</span><span>${pill(status(0, null))}</span></li>`));
+  document.getElementById("actions-hint").textContent = over.length
+    ? "Subcategorias que passaram da meta, e os maiores gastos ainda sem meta."
+    : noMeta.length ? "Nenhuma meta estourada. Estes são os maiores gastos sem meta: comece por eles." : "Tudo dentro das metas no período.";
+  document.getElementById("actions").innerHTML = items.join("") || `<li><span class="nm">Nada a ajustar</span></li>`;
+}
+
+function renderPlan() {
+  const R = realByMonthKey(), months = periodMonths(), am = allMonths();
+  const scope = document.getElementById("plan-scope").value || "base";
+  const keys = allSubKeys();
+  const cats = catsOf(keys).map(c => ({ c, keys: keys.filter(k => splitKey(k).cat === c) }))
+    .map(g => ({ ...g, T: totals(g.keys, months, R) })).sort((a, b) => b.T.real - a.T.real);
+  const nM = Math.max(1, months.length);
+  const realTitle = S.ui.period === "all" ? "Realizado (média/mês)" : "Realizado " + monthLabel(S.ui.period);
+  const inputVal = (k, f) => { const v = scope === "base" ? S.plan.base[k]?.[f] : S.plan.months[scope]?.[k]?.[f]; return v == null ? "" : v; };
+  const ph = (k, f) => { if (scope === "base") return ""; const b = S.plan.base[k]?.[f]; return b == null ? "" : String(b); };
+  let html = `<thead><tr><th>Categoria / subcategoria</th><th class="num">Média ${am.length} meses</th><th class="num">Previsto (mês)</th><th class="num">${realTitle}</th><th class="num">Meta (mês)</th><th>Uso da meta</th><th class="num">Folga</th></tr></thead><tbody>`;
+  for (const g of cats) {
+    const collapsed = !!S.ui.collapsed[g.c];
+    const avgAll = totals(g.keys, am, R).real / Math.max(1, am.length);
+    const T = g.T, real = T.real / nM, metaReal = T.metaReal / nM, prev = T.prev == null ? null : T.prev / nM, meta = T.meta == null ? null : T.meta / nM;
+    const st = status(metaReal, meta);
+    html += `<tr class="cat-row"><td><button class="toggle" type="button" data-collapse="${esc(g.c)}" aria-expanded="${!collapsed}">${collapsed ? "▸" : "▾"}</button>${esc(g.c)}</td><td class="num">${fmt(avgAll)}</td><td class="num">${fmt(prev)}</td><td class="num">${fmt(real)}</td><td class="num">${fmt(meta)}</td><td>${progress(metaReal, meta, st)}</td><td class="num">${meta == null ? "—" : fmt(meta - metaReal)}</td></tr>`;
+    if (collapsed) continue;
+    const subs = g.keys.map(k => ({ k, sub: splitKey(k).sub, T: totals([k], months, R), avgAll: totals([k], am, R).real / Math.max(1, am.length) })).sort((a, b) => b.avgAll - a.avgAll);
+    for (const s of subs) {
+      const real = s.T.real / nM, metaReal = s.T.metaReal / nM, meta = s.T.meta == null ? null : s.T.meta / nM;
+      const st = status(metaReal, meta);
+      html += `<tr><td style="padding-left:28px">${esc(s.sub)}</td><td class="num">${fmt(s.avgAll)}</td>
+        <td class="num"><input type="number" step="10" min="0" inputmode="decimal" id="p-${esc(s.k)}" data-k="${esc(s.k)}" data-f="prev" value="${inputVal(s.k, "prev")}" placeholder="${ph(s.k, "prev")}" aria-label="Previsto ${esc(s.sub)}"></td>
+        <td class="num">${fmt(real)}</td>
+        <td class="num"><input type="number" step="10" min="0" inputmode="decimal" id="m-${esc(s.k)}" data-k="${esc(s.k)}" data-f="meta" value="${inputVal(s.k, "meta")}" placeholder="${ph(s.k, "meta")}" aria-label="Meta ${esc(s.sub)}"></td>
+        <td>${progress(metaReal, meta, st)}</td><td class="num">${meta == null ? "—" : fmt(meta - metaReal)}</td></tr>`;
+    }
+  }
+  document.getElementById("plan-table").innerHTML = html + "</tbody>";
+}
+function progress(real, meta, st) {
+  if (meta == null) return pill(st);
+  const pct = meta > 0 ? real / meta : (real > 0 ? 2 : 0);
+  return `<div class="cell-prog"><div class="bar ${st.cls}" title="${Math.round(pct * 100)}% da meta"><i style="width:${Math.min(100, pct * 100)}%"></i></div><span class="pill ${st.cls}"><span aria-hidden="true">${st.icon}</span>${Math.round(pct * 100)}%</span></div>`;
+}
+
+let txLimit = 150;
+function renderTx() {
+  const q = document.getElementById("tx-search").value.trim().toLowerCase();
+  const cat = document.getElementById("tx-cat").value;
+  const onlyReview = document.getElementById("tx-review").checked;
+  const months = periodMonths();
+  const list = S.tx.filter(t => months.includes(t.date.slice(0, 7))).filter(t => {
+    const k = txKey(t);
+    if (cat && splitKey(k).cat !== cat) return false;
+    if (onlyReview && !/REVISAR CATEGORIA/i.test(t.desc) && k !== keyOf(UNCAT.cat, UNCAT.sub)) return false;
+    return !q || (t.desc + " " + t.account + " " + k + " " + t.src).toLowerCase().includes(q);
+  }).sort((a, b) => b.date.localeCompare(a.date));
+  const sum = list.reduce((s, t) => s + t.value, 0);
+  document.getElementById("tx-summary").textContent = `${list.length} lançamentos · total ${fmt(sum)}. Clique na subcategoria de um lançamento para mudar só ele.`;
+  const shown = list.slice(0, txLimit);
+  document.getElementById("tx-table").innerHTML = `<thead><tr><th>Data</th><th>Descrição</th><th>Conta</th><th>Categoria › subcategoria</th><th class="num">Valor</th></tr></thead><tbody>` +
+    shown.map(t => {
+      const k = txKey(t), d = t.date.split("-");
+      const desc = t.desc.replace(/\s*\|?\s*REVISAR CATEGORIA\s*\|?\s*/i, " ").trim();
+      return `<tr><td class="num">${d[2]}/${d[1]}</td><td style="min-width:240px">${esc(desc)}${/REVISAR CATEGORIA/i.test(t.desc) ? `<span class="flag">revisar</span>` : ""}</td><td class="muted" style="white-space:nowrap">${esc(t.account)}</td>
+        <td><button class="sub-btn" type="button" data-retag="${esc(t.id)}">${esc(k)}</button>${S.txCat[t.id] ? ` <span class="muted" title="Categoria alterada só neste lançamento">✎</span>` : ""}</td>
+        <td class="num" style="${t.value < 0 ? "color:var(--good)" : ""}">${t.value < 0 ? "+" + fmt(-t.value) : fmt(t.value)}</td></tr>`;
+    }).join("") + "</tbody>";
+  const more = document.getElementById("tx-more");
+  more.hidden = list.length <= txLimit; more.textContent = `Mostrar mais (${list.length - txLimit} restantes)`;
+}
+
+function renderMap() {
+  const stats = {};
+  for (const t of S.tx) { const s = stats[t.src] ||= { n: 0, v: 0 }; s.n++; s.v += t.value; }
+  const srcs = Object.keys(stats).sort((a, b) => stats[b].v - stats[a].v);
+  document.getElementById("map-table").innerHTML = `<thead><tr><th>Na planilha</th><th class="num">Lanç.</th><th class="num">Total</th><th>Categoria</th><th>Subcategoria</th></tr></thead><tbody>` +
+    srcs.map((s, i) => { const m = S.map[s] || guessMap(s); return `<tr><td>${s ? esc(s) : `<span class="muted">(vazio)</span>`}</td><td class="num">${stats[s].n}</td><td class="num">${fmt(stats[s].v)}</td>
+      <td><input type="text" list="dl-cats" id="mc-${i}" data-src="${esc(s)}" data-f="cat" value="${esc(m.cat)}" aria-label="Categoria de ${esc(s)}"></td>
+      <td><input type="text" id="ms-${i}" data-src="${esc(s)}" data-f="sub" value="${esc(m.sub)}" aria-label="Subcategoria de ${esc(s)}"></td></tr>`; }).join("") + "</tbody>";
+}
+
+function renderTabs() {
+  for (const b of document.querySelectorAll("nav.tabs button")) b.setAttribute("aria-selected", String(b.dataset.tab === S.ui.tab));
+  for (const id of ["overview", "plan", "tx", "cats"]) document.getElementById("tab-" + id).hidden = S.ui.tab !== id;
+}
+
+function renderAll() {
+  renderControls(); renderBanner(); renderTabs();
+  const empty = !S.tx.length;
+  document.getElementById("empty").hidden = !empty;
+  if (empty) { for (const id of ["overview", "plan", "tx", "cats"]) document.getElementById("tab-" + id).hidden = true; return; }
+  if (S.ui.tab === "overview") renderOverview();
+  if (S.ui.tab === "plan") renderPlan();
+  if (S.ui.tab === "tx") renderTx();
+  if (S.ui.tab === "cats") renderMap();
+}
+
+// ---------- ações ----------
+function renameKey(oldK, newK) {
+  if (oldK === newK) return;
+  const move = obj => { if (obj[oldK] && !obj[newK]) obj[newK] = obj[oldK]; if (obj[oldK]) delete obj[oldK]; };
+  move(S.plan.base); for (const m of Object.values(S.plan.months)) move(m);
+  S.extraSubs = [...new Set(S.extraSubs.map(k => k === oldK ? newK : k))];
+}
+function setMap(src, field, value) {
+  value = value.trim(); if (!value) { renderMap(); return; }
+  const old = S.map[src] || guessMap(src);
+  const oldK = keyOf(old.cat, old.sub);
+  S.map[src] = { ...old, [field]: value };
+  const newK = keyOf(S.map[src].cat, S.map[src].sub);
+  const stillUsed = Object.values(S.map).some(m => keyOf(m.cat, m.sub) === oldK) || Object.values(S.txCat).includes(oldK);
+  if (!stillUsed) renameKey(oldK, newK);
+  save(); renderControls();
+  toast(`“${src || "(vazio)"}” agora é ${newK}`);
+}
+function suggest() {
+  const pct = +document.getElementById("sug-pct").value / 100;
+  const overwrite = document.getElementById("sug-overwrite").checked;
+  const R = realByMonthKey(), am = allMonths(); let n = 0;
+  const round = v => Math.max(0, Math.round(v / 10) * 10);
+  for (const k of allSubKeys()) {
+    const avg = totals([k], am, R).real / Math.max(1, am.length);
+    if (avg <= 0) continue;
+    const p = S.plan.base[k] ||= {};
+    if (overwrite || p.prev == null || p.prev === "") { p.prev = round(avg); n++; }
+    if (overwrite || p.meta == null || p.meta === "") { p.meta = round(avg * (1 - pct)); n++; }
+  }
+  save(); renderPlan(); toast(n ? `${n} valores preenchidos com base na média de ${am.length} meses` : "Nada a preencher: os valores já existem. Marque “substituir” para refazer.");
+}
+function download(name, text) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+document.addEventListener("click", e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.tab) { S.ui.tab = t.dataset.tab; save(); renderAll(); }
+  else if ("drill" in t.dataset) { S.ui.cat = t.dataset.drill || null; save(); renderOverview(); }
+  else if (t.dataset.collapse) { S.ui.collapsed[t.dataset.collapse] = !S.ui.collapsed[t.dataset.collapse]; save(); renderPlan(); }
+  else if ("goReview" in t.dataset) { S.ui.tab = "tx"; document.getElementById("tx-review").checked = true; save(); renderAll(); }
+  else if (t.dataset.retag) {
+    const tx = S.tx.find(x => x.id === t.dataset.retag); const cur = txKey(tx);
+    const keys = allSubKeys().sort((a, b) => a.localeCompare(b, "pt"));
+    const sel = document.createElement("select"); sel.setAttribute("aria-label", "Nova subcategoria");
+    sel.innerHTML = keys.map(k => `<option value="${esc(k)}"${k === cur ? " selected" : ""}>${esc(k)}</option>`).join("");
+    sel.addEventListener("change", () => {
+      const m = S.map[tx.src] || guessMap(tx.src);
+      if (sel.value === keyOf(m.cat, m.sub)) delete S.txCat[tx.id]; else S.txCat[tx.id] = sel.value;
+      save(); renderBanner(); renderTx(); toast("Lançamento recategorizado");
+    });
+    sel.addEventListener("blur", () => renderTx());
+    t.replaceWith(sel); sel.focus();
+  }
+});
+document.getElementById("period").addEventListener("change", e => { S.ui.period = e.target.value; save(); renderAll(); });
+for (const id of ["btn-import", "btn-import-2"]) document.getElementById(id).addEventListener("click", () => document.getElementById("file-xlsx").click());
+document.getElementById("file-xlsx").addEventListener("change", e => { const f = e.target.files[0]; if (f) { S.isExample && (S = Object.assign(emptyState(), { ui: S.ui })); importFile(f); } e.target.value = ""; });
+document.getElementById("btn-export").addEventListener("click", () => { const { ui, ...data } = S; download(`bussola-gastos-backup-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 1)); toast("Backup salvo"); });
+document.getElementById("btn-restore").addEventListener("click", () => document.getElementById("file-json").click());
+document.getElementById("file-json").addEventListener("change", async e => {
+  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+  try { const data = JSON.parse(await f.text()); if (!Array.isArray(data.tx)) throw 0; S = Object.assign(emptyState(), data, { ui: S.ui }); S.isExample = false; save(); renderAll(); toast("Backup restaurado"); }
+  catch (err) { toast("Esse arquivo não é um backup da Bússola de Gastos."); }
+});
+document.getElementById("plan-table").addEventListener("change", e => {
+  const i = e.target; if (!i.dataset.k) return;
+  const scope = document.getElementById("plan-scope").value || "base";
+  const target = scope === "base" ? S.plan.base : (S.plan.months[scope] ||= {});
+  const o = target[i.dataset.k] ||= {};
+  if (i.value === "") delete o[i.dataset.f]; else o[i.dataset.f] = Math.max(0, +i.value);
+  save(); renderPlan();
+  document.getElementById(i.id)?.focus();
+});
+document.getElementById("plan-scope").addEventListener("change", renderPlan);
+document.getElementById("btn-suggest").addEventListener("click", suggest);
+document.getElementById("btn-add-sub").addEventListener("click", () => {
+  const c = document.getElementById("new-cat").value.trim(), s = document.getElementById("new-sub").value.trim();
+  if (!c || !s) { toast("Preencha a categoria e a subcategoria."); return; }
+  const k = keyOf(c, s); if (!allSubKeys().includes(k)) S.extraSubs.push(k);
+  S.ui.collapsed[c] = false; document.getElementById("new-sub").value = "";
+  save(); renderControls(); renderPlan(); toast(`${k} adicionada`);
+});
+document.getElementById("map-table").addEventListener("change", e => { const i = e.target; if ("src" in i.dataset) setMap(i.dataset.src, i.dataset.f, i.value); });
+document.getElementById("btn-reset-map").addEventListener("click", () => { for (const s of Object.keys(S.map)) S.map[s] = (window.BUSSOLA_DADOS?.map?.[s]) || guessMap(s); save(); renderControls(); renderMap(); toast("Categorias voltaram à sugestão automática"); });
+for (const id of ["tx-search", "tx-cat", "tx-review"]) document.getElementById(id).addEventListener("input", () => { txLimit = 150; renderTx(); });
+document.getElementById("tx-more").addEventListener("click", () => { txLimit += 300; renderTx(); });
+
+// re-render dos gráficos quando o tema muda
+const rerender = () => { chartDefaults(); if (S.ui.tab === "overview" && S.tx.length) renderOverview(); };
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", rerender);
+new MutationObserver(rerender).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+// ---------- exemplo (só quando não há dados) ----------
+function exampleTx() {
+  const spec = [["Aluguel", 3200, 0], ["Luz", 220, 0.2], ["Internet e Celular", 180, 0], ["Supermercado", 1400, 0.25], ["Bares, Restaurantes e Jantares", 650, 0.4], ["Delivery", 380, 0.4],
+    ["Combustível", 520, 0.3], ["Táxi/Uber", 160, 0.5], ["Plano/Seguro de saúde", 890, 0], ["Farmácia", 140, 0.5], ["Streaming", 120, 0.1], ["Cursos", 300, 0.3], ["Roupas / Calçados", 250, 0.8], ["Viagens", 400, 1]];
+  const now = new Date(), out = [];
+  let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+  for (let back = 3; back >= 1; back--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - back, 1); const ym = d.toISOString().slice(0, 7);
+    for (const [src, base, vol] of spec) {
+      const n = vol > 0.2 ? 3 : 1;
+      for (let i = 0; i < n; i++) { const v = Math.round(base / n * (1 + (rnd() - 0.5) * 2 * vol) * 100) / 100; const day = String(1 + Math.floor(rnd() * 27)).padStart(2, "0");
+        out.push({ id: `ex|${ym}|${src}|${i}`, date: `${ym}-${day}`, value: v, src, account: "Exemplo", desc: `Exemplo · ${src}` }); }
+    }
+  }
+  return out;
+}
+
+// ---------- início ----------
+chartDefaults();
+if (!load()) {
+  if (window.BUSSOLA_DADOS) { S.map = { ...window.BUSSOLA_DADOS.map }; ingest(window.BUSSOLA_DADOS.tx, window.BUSSOLA_DADOS.source || ""); }
+  else { S.isExample = true; ingest(exampleTx(), "dados de exemplo"); }
+}
+renderAll();
+</script>
+</body>
+</html>
