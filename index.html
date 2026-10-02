@@ -491,7 +491,7 @@ function renderOverview() {
       maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
       plugins: { legend: { display: false }, tooltip: tooltipOpts() },
       scales: { x: { grid: { display: false }, border: { color: css("--axis") } }, y: { beginAtZero: true, border: { display: false }, ticks: { callback: v => fmt0(v) } } },
-      onClick: (e, els) => { if (els.length) { const m = am[els[0].index]; S.ui.period = S.ui.period === m ? "all" : m; save(); renderAll(); } },
+      onClick: (e, els) => { if (els.length) { const m = am[els[0].index]; S.ui.period = S.ui.period === m ? "all" : m; save(); setTimeout(renderAll); } },
       onHover: (e, els) => e.native.target.style.cursor = els.length ? "pointer" : "default",
     },
   });
@@ -518,7 +518,7 @@ function renderOverview() {
         tooltip: { ...tooltipOpts(), callbacks: { label: c => ` ${c.dataset.label}: ${fmt(c.raw)}`, afterBody: items => { const r = rows[items[0].dataIndex]; return r.meta != null ? [" " + status(r.metaReal, r.meta).label] : []; } } },
       },
       scales: { x: { beginAtZero: true, border: { display: false }, ticks: { callback: v => fmt0(v), maxTicksLimit: innerWidth < 600 ? 4 : 8, maxRotation: 0 } }, y: { grid: { display: false }, border: { color: css("--axis") }, ticks: { color: css("--ink-2"), autoSkip: false } } },
-      onClick: (e, els) => { if (!drill && els.length) { S.ui.cat = rows[els[0].index].name; save(); renderOverview(); } },
+      onClick: (e, els) => { if (!drill && els.length) { S.ui.cat = rows[els[0].index].name; save(); setTimeout(renderOverview); } },
       onHover: (e, els) => e.native.target.style.cursor = !drill && els.length ? "pointer" : "default",
     },
   });
