@@ -144,9 +144,9 @@ table.cf { font-size: 13px; border-collapse: separate; border-spacing: 0; width:
 .cf .nm { position: sticky; left: 0; z-index: 1; min-width: 220px; max-width: 260px; white-space: normal; border-right: 1px solid var(--line); }
 .cf thead th.nm { z-index: 3; text-align: left; }
 .cf .ms { border-left: 1px solid var(--line); }
-.cf .yr { border-left: 2px solid var(--axis); }
-.cf th.future { color: var(--axis); }
-.cf td.future { color: var(--muted); }
+.cf .yr { border-left: 2px solid var(--axis); position: sticky; right: 0; z-index: 1; min-width: 110px; }
+.cf thead th.yr { z-index: 3; }
+.cf tfoot td.yr { z-index: 2; }
 .cf tr.cat-row td { background: var(--surface-2); }
 .cf tfoot td { position: sticky; bottom: 0; z-index: 1; background: var(--surface); }
 .cf tfoot td.nm { z-index: 2; }
@@ -254,7 +254,7 @@ table.cf { font-size: 13px; border-collapse: separate; border-spacing: 0; width:
   <section id="tab-plan" hidden>
     <div class="panel">
       <h2>Fluxo anual de metas</h2>
-      <p class="hint">Cada mês tem <strong>Meta</strong> e <strong>Realizado</strong>. A coluna <strong>Meta/mês</strong> vale para todos os meses; digite num mês para mudar só ele (valor em negrito) e apague para voltar ao padrão (valor em cinza). Categorias somam as subcategorias. Clique num nome ou valor realizado para ver as despesas.</p>
+      <p class="hint">Meses que já têm lançamentos mostram o <strong>Realizado</strong> (vermelho com ▲ quando passou da meta); os seguintes mostram a <strong>Meta</strong>. A coluna <strong>Meta/mês</strong> vale para todos os meses; digite num mês para mudar só ele (valor em negrito) e apague para voltar ao padrão (valor em cinza). Categorias somam as subcategorias. Clique num nome ou valor realizado para ver as despesas.</p>
       <div class="toolbar">
         <div class="field"><label for="plan-year">Ano</label><select id="plan-year"></select></div>
         <div class="field"><label for="sug-pct">Corte sobre a média</label><select id="sug-pct"><option value="0">0% (manter a média)</option><option value="5">5%</option><option value="10" selected>10%</option><option value="15">15%</option><option value="20">20%</option><option value="30">30%</option></select></div>
@@ -750,30 +750,34 @@ function renderOverview() {
 
 function renderPlan() {
   const R = realByMonthKey(), year = S.ui.year;
-  const ym = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+  const firstData = allMonths()[0] || "";
+  // só os meses a partir do primeiro lançamento importado
+  const ym = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`).filter(m => m >= firstData.slice(0, 7));
   const withData = allMonths().filter(m => m.startsWith(year));
   const lastData = withData[withData.length - 1] || "";
-  const isFuture = m => !withData.includes(m) && m > lastData;
+  const closed = m => m <= lastData; // mês que já tem lançamentos: mostra o realizado; os seguintes mostram a meta
   const nD = Math.max(1, withData.length);
   const keys = allSubKeys();
   const cats = catsOf(keys).map(c => ({ c, keys: keys.filter(k => splitKey(k).cat === c) }))
     .map(g => ({ ...g, real: totals(g.keys, withData, R).real })).sort((a, b) => b.real - a.real);
   const folgaTxt = withData.length ? (withData.length === 1 ? monthLabel(withData[0]) : `${monthLabel(withData[0])}–${monthLabel(lastData)}`) : "sem dados";
   const head1 = `<tr><th class="nm" rowspan="2">Categoria / subcategoria</th><th class="num" rowspan="2" title="Média mensal do realizado nos meses com lançamentos">Média/mês</th><th class="num" rowspan="2" title="Meta padrão: vale para todos os meses sem valor próprio">Meta/mês</th>`
-    + ym.map(m => `<th colspan="2" class="ms${isFuture(m) ? " future" : ""}">${monthLabel(m)}</th>`).join("")
-    + `<th colspan="3" class="yr">Ano ${year}</th></tr>`;
-  const head2 = `<tr>${ym.map(m => `<th class="num ms${isFuture(m) ? " future" : ""}">Meta</th><th class="num${isFuture(m) ? " future" : ""}">Real.</th>`).join("")}<th class="num yr">Meta</th><th class="num">Realizado</th><th class="num" title="Meta menos realizado nos meses com lançamentos">Folga ${folgaTxt}</th></tr>`;
+    + ym.map(m => `<th class="ms">${monthLabel(m)}</th>`).join("")
+    + `<th class="num yr" rowspan="2" title="Meta menos realizado nos meses com lançamentos">Folga<br>${folgaTxt}</th></tr>`;
+  const head2 = `<tr>${ym.map(m => `<th class="num ms">${closed(m) ? "Realizado" : "Meta"}</th>`).join("")}</tr>`;
   const realCell = (ks, m, f) => {
     const T = totals(ks, [m], R);
-    if (!withData.includes(m)) return `<td class="num${isFuture(m) ? " future" : ""}">${T.real ? fmt0(T.real) : "—"}</td>`;
     const cls = T.meta == null ? "" : T.metaReal > T.meta ? " over" : " under";
     const icon = T.meta == null ? "" : T.metaReal > T.meta ? "▲ " : "";
-    return `<td class="num${cls}">${T.real ? `<button class="lnk" type="button" tabindex="-1" ${openAttr({ ...f, months: [m] })}>${icon}${fmt0(T.real)}</button>` : "—"}</td>`;
+    const tip = T.meta == null ? "sem meta" : `meta ${fmt0(T.meta)}`;
+    return `<td class="num ms${cls}" title="${tip}">${T.real ? `<button class="lnk" type="button" tabindex="-1" ${openAttr({ ...f, months: [m] })}>${icon}${fmt0(T.real)}</button>` : "—"}</td>`;
   };
+  // célula de mês de uma linha somada (categoria ou total): realizado nos meses fechados, meta somada nos demais
+  const sumCell = (ks, m, f) => closed(m) ? realCell(ks, m, f) : `<td class="num ms">${fmt0(totals(ks, [m], R).meta)}</td>`;
   const yearCells = ks => {
-    const TY = totals(ks, ym, R), TD = totals(ks, withData, R);
+    const TD = totals(ks, withData, R);
     const folga = TD.meta == null ? null : TD.meta - TD.metaReal;
-    return `<td class="num yr">${fmt0(TY.meta)}</td><td class="num">${fmt0(TY.real)}</td><td class="num${folga == null ? "" : folga < 0 ? " over" : " under"}">${folga == null ? "—" : (folga < 0 ? "▲ −" : "") + fmt0(Math.abs(folga))}</td>`;
+    return `<td class="num yr${folga == null ? "" : folga < 0 ? " over" : " under"}">${folga == null ? "—" : (folga < 0 ? "▲ −" : "") + fmt0(Math.abs(folga))}</td>`;
   };
   let html = `<thead>${head1}${head2}</thead><tbody>`;
   for (const g of cats) {
@@ -781,7 +785,7 @@ function renderPlan() {
     const fc = fCat(g.c, withData.length ? withData : null);
     const base = g.keys.reduce((a, k) => { const v = S.plan.base[k]?.meta; return v == null || v === "" ? a : (a || 0) + +v; }, null);
     html += `<tr class="cat-row"><td class="nm"><button class="toggle" type="button" data-collapse="${esc(g.c)}" aria-expanded="${!collapsed}" aria-label="${collapsed ? "Abrir" : "Fechar"} ${esc(g.c)}">${collapsed ? "▸" : "▾"}</button><button class="lnk" type="button" ${openAttr(fc)}>${esc(g.c)}</button></td><td class="num">${fmt0(g.real / nD)}</td><td class="num">${fmt0(base)}</td>`
-      + ym.map(m => `<td class="num ms${isFuture(m) ? " future" : ""}">${fmt0(totals(g.keys, [m], R).meta)}</td>${realCell(g.keys, m, fc)}`).join("")
+      + ym.map(m => sumCell(g.keys, m, fc)).join("")
       + yearCells(g.keys) + `</tr>`;
     if (collapsed) continue;
     const subs = g.keys.map(k => ({ k, sub: splitKey(k).sub, real: totals([k], withData, R).real })).sort((a, b) => b.real - a.real);
@@ -790,14 +794,14 @@ function renderPlan() {
       const bv = S.plan.base[sb.k]?.meta;
       html += `<tr><td class="nm" style="padding-left:28px"><button class="lnk" type="button" ${openAttr(fk)}>${esc(sb.sub)}</button></td><td class="num">${fmt0(sb.real / nD)}</td>
         <td class="num"><input type="number" step="10" min="0" inputmode="decimal" id="m-${kid}-base" data-k="${kid}" data-m="base" value="${bv ?? ""}" aria-label="Meta mensal padrão de ${esc(sb.sub)}"></td>`
-        + ym.map(m => { const ov = S.plan.months[m]?.[sb.k]?.meta; return `<td class="num ms"><input type="number" step="10" min="0" inputmode="decimal" id="m-${kid}-${m}" data-k="${kid}" data-m="${m}" value="${ov ?? ""}" placeholder="${bv ?? ""}" class="${ov != null ? "ovr" : ""}" aria-label="Meta de ${esc(sb.sub)} em ${monthLong(m)}"></td>${realCell([sb.k], m, fk)}`; }).join("")
+        + ym.map(m => { if (closed(m)) return realCell([sb.k], m, fk); const ov = S.plan.months[m]?.[sb.k]?.meta; return `<td class="num ms"><input type="number" step="10" min="0" inputmode="decimal" id="m-${kid}-${m}" data-k="${kid}" data-m="${m}" value="${ov ?? ""}" placeholder="${bv ?? ""}" class="${ov != null ? "ovr" : ""}" aria-label="Meta de ${esc(sb.sub)} em ${monthLong(m)}"></td>`; }).join("")
         + yearCells([sb.k]) + `</tr>`;
     }
   }
   const fAll = { title: "Todas as despesas", eyebrow: "Total", keys: null, months: withData.length ? withData : null };
   const TB = keys.reduce((a, k) => { const v = S.plan.base[k]?.meta; return v == null || v === "" ? a : (a || 0) + +v; }, null);
   html += `</tbody><tfoot><tr class="total-row"><td class="nm"><button class="lnk" type="button" ${openAttr(fAll)}>Total</button></td><td class="num">${fmt0(totals(keys, withData, R).real / nD)}</td><td class="num">${fmt0(TB)}</td>`
-    + ym.map(m => `<td class="num ms${isFuture(m) ? " future" : ""}">${fmt0(totals(keys, [m], R).meta)}</td>${realCell(keys, m, fAll)}`).join("")
+    + ym.map(m => sumCell(keys, m, fAll)).join("")
     + yearCells(keys) + `</tr></tfoot>`;
   document.getElementById("plan-table").innerHTML = html;
 }
