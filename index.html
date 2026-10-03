@@ -128,6 +128,7 @@ th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: le
 th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; background: var(--surface); position: sticky; top: 0; }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 tr.cat-row td { background: var(--surface-2); font-weight: 600; }
+tr.total-row td { border-top: 2px solid var(--ink); border-bottom: 0; font-weight: 700; font-size: 15px; padding-block: 12px; }
 tr.cat-row button.toggle { border: 0; background: none; cursor: pointer; font-weight: 700; padding: 0 6px 0 0; }
 tr.click { cursor: pointer; }
 tr.click:hover td { background: var(--surface-2); }
@@ -171,6 +172,7 @@ td input[type="text"] { width: 100%; min-width: 140px; min-height: 32px; padding
 .xdet dt { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; padding-top: 2px; }
 .xdet dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .xdet select { width: 100%; }
+.desc-edit { width: 100%; resize: vertical; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font: inherit; color: inherit; line-height: 1.4; }
 .xdet .row-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; }
 .pos { color: var(--good); }
 @media (prefers-reduced-motion: no-preference) { .drawer { animation: slidein 0.18s ease-out; } @keyframes slidein { from { transform: translateX(24px); opacity: 0.6; } } }
@@ -334,7 +336,7 @@ function guessMap(src) {
 
 // ---------- estado ----------
 function emptyState() {
-  return { v: STATE_VERSION, tx: [], map: {}, txCat: {}, reviewed: {}, plan: { base: {}, months: {} }, extraSubs: [], source: "", ui: { tab: "overview", period: "all", cat: null, collapsed: {} } };
+  return { v: STATE_VERSION, tx: [], map: {}, txCat: {}, reviewed: {}, descEdit: {}, plan: { base: {}, months: {} }, extraSubs: [], source: "", ui: { tab: "overview", period: "all", cat: null, collapsed: {} } };
 }
 let S = emptyState();
 function migrate() {
@@ -352,6 +354,7 @@ function migrate() {
     S.v = 2;
   }
   S.reviewed ||= {};
+  S.descEdit ||= {};
 }
 function load() {
   try {
@@ -377,6 +380,8 @@ const css = name => getComputedStyle(document.documentElement).getPropertyValue(
 const keyOf = (cat, sub) => cat + SEP + sub;
 const splitKey = k => { const i = k.indexOf(SEP); return { cat: k.slice(0, i), sub: k.slice(i + SEP.length) }; };
 const cleanDesc = d => d.replace(/\s*\|?\s*REVISAR CATEGORIA\s*\|?\s*/i, " ").trim();
+// descrição exibida: a editada pelo usuário, ou a da planilha sem a marca de revisão
+const descOf = t => S.descEdit[t.id] ?? cleanDesc(t.desc);
 const needsReview = t => !S.reviewed[t.id] && (REVIEW_RE.test(t.desc) || txKey(t) === keyOf(UNCAT.cat, UNCAT.sub));
 function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 3200); }
 function parseNum(v) {
@@ -550,7 +555,7 @@ function renderDrawer() {
   for (const t of list) {
     if (t.date !== day) { day = t.date; html += `<div class="d-day">${dayLabel(day)}</div>`; }
     const open = openIds.has(t.id), k = txKey(t);
-    html += `<button class="xrow" type="button" data-x="${esc(t.id)}" aria-expanded="${open}"><span class="ds">${esc(cleanDesc(t.desc) || "(sem descrição)")}${needsReview(t) ? `<span class="flag">revisar</span>` : ""}</span><span class="vl${t.value < 0 ? " pos" : ""}">${t.value < 0 ? "+" + fmt(-t.value) : fmt(t.value)}</span><span class="mt">${esc(k)} · ${esc(t.account)}</span></button>`;
+    html += `<button class="xrow" type="button" data-x="${esc(t.id)}" aria-expanded="${open}"><span class="ds">${esc(descOf(t) || "(sem descrição)")}${S.descEdit[t.id] != null ? ` <span class="muted" title="Descrição editada">✎</span>` : ""}${needsReview(t) ? `<span class="flag">revisar</span>` : ""}</span><span class="vl${t.value < 0 ? " pos" : ""}">${t.value < 0 ? "+" + fmt(-t.value) : fmt(t.value)}</span><span class="mt">${esc(k)} · ${esc(t.account)}</span></button>`;
     if (open) html += detailHtml(t);
   }
   document.getElementById("d-list").innerHTML = html || `<p class="muted" style="padding:16px">Nenhuma despesa neste recorte.</p>`;
@@ -558,12 +563,13 @@ function renderDrawer() {
 function detailHtml(t) {
   const k = txKey(t);
   const keys = allSubKeys().sort((a, b) => a.localeCompare(b, "pt"));
-  const parts = t.desc.split("|").map(s => s.trim()).filter(s => s && !REVIEW_RE.test(s));
+  const edited = S.descEdit[t.id] != null;
   return `<dl class="xdet">
     <dt>Valor</dt><dd>${t.value < 0 ? "estorno de " + fmt(-t.value) : fmt(t.value)}</dd>
     <dt>Data</dt><dd>${dayLabel(t.date)}</dd>
     <dt>Conta</dt><dd>${esc(t.account) || "—"}</dd>
-    <dt>Descrição</dt><dd>${parts.map(esc).join("<br>") || "—"}</dd>
+    <dt><label for="de-${esc(t.id)}">Descrição</label></dt><dd><textarea class="desc-edit" id="de-${esc(t.id)}" data-desc="${esc(t.id)}" rows="3" placeholder="Escreva uma descrição">${esc(descOf(t))}</textarea>
+      <div class="muted" style="font-size:12px;margin-top:4px">${edited ? `Editada. Na planilha: ${esc(cleanDesc(t.desc)) || "(vazia)"} · <button class="lnk" type="button" data-desc-reset="${esc(t.id)}">Restaurar original</button>` : "Edite e clique fora do campo para salvar."}</div></dd>
     <dt>Na planilha</dt><dd><button class="lnk" type="button" ${openAttr({ ...fSrc(t.src, null), push: true })}>${esc(t.src || "(sem categoria)")}</button></dd>
     <dt><label for="rc-${esc(t.id)}">Subcategoria</label></dt><dd><select id="rc-${esc(t.id)}" data-recat="${esc(t.id)}">${keys.map(x => `<option value="${esc(x)}"${x === k ? " selected" : ""}>${esc(x)}</option>`).join("")}</select>${S.txCat[t.id] ? `<div class="muted" style="font-size:12px;margin-top:4px">Alterada só neste lançamento. <button class="lnk" type="button" data-uncat="${esc(t.id)}">Voltar para ${esc(srcKey(t.src))}</button></div>` : ""}</dd>
     <div class="row-actions">
@@ -752,7 +758,12 @@ function renderPlan() {
         <td>${progress(metaReal, meta, st)}</td><td class="num">${meta == null ? "—" : fmt(meta - metaReal)}</td></tr>`;
     }
   }
-  document.getElementById("plan-table").innerHTML = html + "</tbody>";
+  // linha de total: todas as categorias somadas
+  const TT = totals(keys, months, R), avgAllT = totals(keys, am, R).real / Math.max(1, am.length);
+  const realT = TT.real / nM, metaRealT = TT.metaReal / nM, metaT = TT.meta == null ? null : TT.meta / nM;
+  const fAll = { title: "Todas as despesas", eyebrow: "Total", keys: null, months };
+  html += `</tbody><tfoot><tr class="total-row"><td><button class="lnk" type="button" ${openAttr(fAll)}>Total</button></td><td class="num">${fmt(avgAllT)}</td><td class="num"><button class="lnk" type="button" ${openAttr(fAll)}>${fmt(realT)}</button></td><td class="num">${fmt(metaT)}</td><td>${progress(metaRealT, metaT, status(metaRealT, metaT))}</td><td class="num">${metaT == null ? "—" : fmt(metaT - metaRealT)}</td></tr></tfoot>`;
+  document.getElementById("plan-table").innerHTML = html;
 }
 function progress(real, meta, st) {
   if (meta == null) return pill(st);
@@ -770,7 +781,7 @@ function renderTx() {
     const k = txKey(t);
     if (cat && splitKey(k).cat !== cat) return false;
     if (onlyReview && !needsReview(t)) return false;
-    return !q || (t.desc + " " + t.account + " " + k + " " + t.src).toLowerCase().includes(q);
+    return !q || (descOf(t) + " " + t.desc + " " + t.account + " " + k + " " + t.src).toLowerCase().includes(q);
   }).sort((a, b) => b.date.localeCompare(a.date));
   const sum = list.reduce((s, t) => s + t.value, 0);
   document.getElementById("tx-summary").textContent = `${list.length} lançamentos · total ${fmt(sum)}. Clique num lançamento para abrir a despesa e mudar a categoria.`;
@@ -778,7 +789,7 @@ function renderTx() {
   document.getElementById("tx-table").innerHTML = `<thead><tr><th>Data</th><th>Descrição</th><th>Conta</th><th>Categoria › subcategoria</th><th class="num">Valor</th></tr></thead><tbody>` +
     shown.map(t => {
       const k = txKey(t), d = t.date.split("-");
-      return `<tr class="click" data-row="${esc(t.id)}"><td class="num">${d[2]}/${d[1]}</td><td style="min-width:240px"><button class="lnk" type="button" data-tx="${esc(t.id)}">${esc(cleanDesc(t.desc) || "(sem descrição)")}</button>${needsReview(t) ? `<span class="flag">revisar</span>` : ""}</td><td class="muted" style="white-space:nowrap">${esc(t.account)}</td>
+      return `<tr class="click" data-row="${esc(t.id)}"><td class="num">${d[2]}/${d[1]}</td><td style="min-width:240px"><button class="lnk" type="button" data-tx="${esc(t.id)}">${esc(descOf(t) || "(sem descrição)")}</button>${S.descEdit[t.id] != null ? ` <span class="muted" title="Descrição editada">✎</span>` : ""}${needsReview(t) ? `<span class="flag">revisar</span>` : ""}</td><td class="muted" style="white-space:nowrap">${esc(t.account)}</td>
         <td>${esc(k)}${S.txCat[t.id] ? ` <span class="muted" title="Categoria alterada só neste lançamento">✎</span>` : ""}</td>
         <td class="num${t.value < 0 ? " pos" : ""}">${t.value < 0 ? "+" + fmt(-t.value) : fmt(t.value)}</td></tr>`;
     }).join("") + "</tbody>";
@@ -890,9 +901,16 @@ document.addEventListener("click", e => {
   else if (d.drillClose) { S.ui.cat = d.drillClose; save(); closeDrawer(); F.length = 0; renderOverview(); document.getElementById("cat-title").scrollIntoView({ block: "start" }); }
   else if (d.collapse) { S.ui.collapsed[d.collapse] = !S.ui.collapsed[d.collapse]; save(); F.length = 0; renderPlan(); }
   else if (d.reviewed) { S.reviewed[d.reviewed] = true; afterDataChange(); toast("Marcado como revisado"); }
+  else if (d.descReset) { delete S.descEdit[d.descReset]; afterDataChange(); toast("Descrição original restaurada"); }
   else if (d.uncat) { delete S.txCat[d.uncat]; afterDataChange(); toast("Lançamento voltou para a categoria da planilha"); }
 });
 document.getElementById("d-list").addEventListener("change", e => {
+  const did = e.target.dataset.desc;
+  if (did) {
+    const tx = S.tx.find(x => x.id === did), v = e.target.value.trim();
+    if (v === cleanDesc(tx.desc)) delete S.descEdit[did]; else S.descEdit[did] = v;
+    afterDataChange(); toast("Descrição salva"); return;
+  }
   const id = e.target.dataset.recat; if (!id) return;
   const tx = S.tx.find(x => x.id === id);
   if (e.target.value === srcKey(tx.src)) delete S.txCat[id]; else S.txCat[id] = e.target.value;

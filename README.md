@@ -16,6 +16,7 @@ Ferramenta para visualizar despesas exportadas do **Money Pro** e definir metas 
    - **Metas**: tabela por categoria e subcategoria com média, realizado, meta e uso da meta. A
      meta vale para todo mês, ou só para um mês específico. O botão **Sugerir metas a partir da
      média** preenche a meta com a média dos meses importados menos um corte (0% a 30%).
+     A linha **Total** no fim soma todas as categorias.
    - **Lançamentos**: busca e filtro por categoria ou pelos lançamentos a revisar.
    - **Categorias**: árvore categoria › subcategoria › categoria da planilha. Renomeie para
      reorganizar; nomes iguais se juntam. Categorias no formato `Grupo | Item`
@@ -30,6 +31,7 @@ lançamentos daquele recorte, agrupados por dia, com total, média e meta. Dentr
 
 - os atalhos no topo filtram por subcategoria ou por mês (← volta);
 - clicar numa despesa mostra a descrição completa, a conta e a categoria original da planilha;
+- dá para editar a descrição (a original da planilha fica guardada e pode ser restaurada);
 - dá para mudar a subcategoria só daquele lançamento, ou marcar “Categoria está certa” para
   tirá-lo da lista de revisão.
 
