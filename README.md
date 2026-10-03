@@ -10,18 +10,28 @@ Ferramenta para visualizar despesas exportadas do **Money Pro** e definir metas 
    (colunas `Category`, `Amount`, `Date`, `Account`, `Account (to)`, `Description`).
    Também aceita CSV e cabeçalhos em português (`Categoria`, `Valor`, `Data`, `Conta`, `Descrição`).
 3. Navegue pelas abas:
-   - **Visão geral**: totais de realizado, previsto e meta; gráfico mês a mês; gastos por
-     categoria (clique para abrir as subcategorias); composição de cada mês; lista “Onde agir”
-     com as metas estouradas e os maiores gastos ainda sem meta.
-   - **Previsto e metas**: tabela por categoria e subcategoria. Preencha o **previsto**
-     (quanto espera gastar no mês) e a **meta** (o teto que quer respeitar). Os valores valem
-     para todo mês, ou só para um mês específico. O botão **Sugerir a partir da média** preenche
-     o previsto com a média dos meses importados e a meta com a média menos um corte (5% a 30%).
-   - **Lançamentos**: busca e filtro; clique na subcategoria de um lançamento para mudar só ele
-     (útil para os marcados “REVISAR CATEGORIA”).
-   - **Categorias**: cada categoria da planilha vira uma subcategoria dentro de uma categoria
-     principal. Renomeie para reorganizar. Categorias no formato `Grupo | Item`
-     (ex.: `WILLIAM | Escola`) já entram como categoria e subcategoria.
+   - **Visão geral**: total realizado, meta e folga; gráfico mês a mês; gastos por categoria;
+     composição de cada mês; lista “Onde agir” com as metas estouradas e os maiores gastos ainda
+     sem meta.
+   - **Metas**: tabela por categoria e subcategoria com média, realizado, meta e uso da meta. A
+     meta vale para todo mês, ou só para um mês específico. O botão **Sugerir metas a partir da
+     média** preenche a meta com a média dos meses importados menos um corte (0% a 30%).
+   - **Lançamentos**: busca e filtro por categoria ou pelos lançamentos a revisar.
+   - **Categorias**: árvore categoria › subcategoria › categoria da planilha. Renomeie para
+     reorganizar; nomes iguais se juntam. Categorias no formato `Grupo | Item`
+     (ex.: `WILLIAM | Escola`) já entram como categoria e subcategoria. “Apostas” entra junto com
+     “Rifas e Apostas”.
+
+### Abrir as despesas de qualquer lugar
+
+Clicar numa barra, num bloco do gráfico, num número do resumo, numa linha de “Onde agir”, num
+nome ou valor da aba Metas, num lançamento ou numa categoria abre o painel **Despesas** com os
+lançamentos daquele recorte, agrupados por dia, com total, média e meta. Dentro do painel:
+
+- os atalhos no topo filtram por subcategoria ou por mês (← volta);
+- clicar numa despesa mostra a descrição completa, a conta e a categoria original da planilha;
+- dá para mudar a subcategoria só daquele lançamento, ou marcar “Categoria está certa” para
+  tirá-lo da lista de revisão.
 
 ## Regras de cálculo
 
