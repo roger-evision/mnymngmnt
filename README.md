@@ -46,7 +46,7 @@ lançamentos daquele recorte, agrupados por dia, com total, média e meta. Dentr
 ## Onde ficam os dados
 
 Tudo fica no `localStorage` do navegador. Nada é enviado para servidor. Use
-**Salvar backup** para gerar um `.json` com lançamentos, categorias, previstos e metas, e
+**Salvar backup** para gerar um `.json` com lançamentos, categorias e metas, e
 **Restaurar backup** para recarregá-lo em outro navegador ou computador.
 
 > Este repositório é público. O `.gitignore` bloqueia `.xlsx`, `.csv` e `.json` para que
