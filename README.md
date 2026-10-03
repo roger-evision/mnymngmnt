@@ -13,10 +13,13 @@ Ferramenta para visualizar despesas exportadas do **Money Pro** e definir metas 
    - **Visão geral**: total realizado, meta e folga; gráfico mês a mês; gastos por categoria;
      composição de cada mês; lista “Onde agir” com as metas estouradas e os maiores gastos ainda
      sem meta.
-   - **Metas**: tabela por categoria e subcategoria com média, realizado, meta e uso da meta. A
-     meta vale para todo mês, ou só para um mês específico. O botão **Sugerir metas a partir da
-     média** preenche a meta com a média dos meses importados menos um corte (0% a 30%).
-     A linha **Total** no fim soma todas as categorias.
+   - **Metas**: fluxo anual. Linhas = categorias e subcategorias; colunas = os 12 meses do ano
+     escolhido, cada um com **Meta** e **Realizado**, mais a média mensal e o resumo do ano
+     (meta, realizado e folga). A coluna **Meta/mês** vale para todos os meses; digitar num mês
+     muda só aquele mês (fica em negrito), e apagar volta ao padrão. Realizado acima da meta
+     aparece em vermelho com ▲. A folga considera só os meses que já têm lançamentos. O botão
+     **Sugerir metas a partir da média** preenche a Meta/mês com a média dos meses importados
+     menos um corte (0% a 30%). A linha **Total** no fim soma todas as categorias.
    - **Lançamentos**: busca e filtro por categoria ou pelos lançamentos a revisar.
    - **Categorias**: árvore categoria › subcategoria › categoria da planilha. Renomeie para
      reorganizar; nomes iguais se juntam. Categorias no formato `Grupo | Item`

@@ -134,10 +134,27 @@ tr.click { cursor: pointer; }
 tr.click:hover td { background: var(--surface-2); }
 td input[type="number"] { width: 110px; text-align: right; min-height: 32px; padding: 4px 8px; }
 td input[type="text"] { width: 100%; min-width: 140px; min-height: 32px; padding: 4px 8px; }
-.bar { position: relative; height: 8px; border-radius: 4px; background: var(--surface-2); min-width: 90px; overflow: hidden; }
-.bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; }
-.bar.good > i { background: var(--good); } .bar.warn > i { background: var(--warn); } .bar.bad > i { background: var(--bad); }
-.cell-prog { display: flex; align-items: center; gap: 8px; }
+/* fluxo anual: primeira coluna e cabeçalho fixos dentro da área com rolagem */
+.cf-wrap { overflow: auto; max-height: calc(100vh - 140px); border: 1px solid var(--line); border-radius: 8px; }
+table.cf { font-size: 13px; border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+.cf th, .cf td { padding: 5px 8px; white-space: nowrap; background: var(--surface); }
+.cf thead th { position: sticky; z-index: 2; text-align: center; }
+.cf thead tr:first-child th { top: 0; height: 30px; }
+.cf thead tr:nth-child(2) th { top: 30px; font-size: 10px; }
+.cf .nm { position: sticky; left: 0; z-index: 1; min-width: 220px; max-width: 260px; white-space: normal; border-right: 1px solid var(--line); }
+.cf thead th.nm { z-index: 3; text-align: left; }
+.cf .ms { border-left: 1px solid var(--line); }
+.cf .yr { border-left: 2px solid var(--axis); }
+.cf th.future { color: var(--axis); }
+.cf td.future { color: var(--muted); }
+.cf tr.cat-row td { background: var(--surface-2); }
+.cf tfoot td { position: sticky; bottom: 0; z-index: 1; background: var(--surface); }
+.cf tfoot td.nm { z-index: 2; }
+.cf td input[type="number"] { width: 84px; min-height: 28px; padding: 2px 6px; font-size: 13px; }
+.cf td input.ovr { font-weight: 700; border-color: var(--accent); }
+.cf td.over { color: var(--bad); font-weight: 600; }
+.cf td.under { color: var(--good); }
+@media (max-width: 600px) { .cf .nm { min-width: 130px; max-width: 150px; } }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: end; margin-bottom: 12px; }
 .toolbar .grow { flex: 1 1 220px; }
 .toolbar .grow input { width: 100%; }
@@ -236,10 +253,10 @@ td input[type="text"] { width: 100%; min-width: 140px; min-height: 32px; padding
 
   <section id="tab-plan" hidden>
     <div class="panel">
-      <h2>Metas por subcategoria</h2>
-      <p class="hint"><strong>Meta</strong> é o teto mensal que você quer respeitar. <strong>Realizado</strong> vem dos lançamentos. A meta de uma categoria é a soma das subcategorias. Clique num nome ou valor para ver as despesas.</p>
+      <h2>Fluxo anual de metas</h2>
+      <p class="hint">Cada mês tem <strong>Meta</strong> e <strong>Realizado</strong>. A coluna <strong>Meta/mês</strong> vale para todos os meses; digite num mês para mudar só ele (valor em negrito) e apague para voltar ao padrão (valor em cinza). Categorias somam as subcategorias. Clique num nome ou valor realizado para ver as despesas.</p>
       <div class="toolbar">
-        <div class="field"><label for="plan-scope">Editar metas de</label><select id="plan-scope"></select></div>
+        <div class="field"><label for="plan-year">Ano</label><select id="plan-year"></select></div>
         <div class="field"><label for="sug-pct">Corte sobre a média</label><select id="sug-pct"><option value="0">0% (manter a média)</option><option value="5">5%</option><option value="10" selected>10%</option><option value="15">15%</option><option value="20">20%</option><option value="30">30%</option></select></div>
         <button class="btn" id="btn-suggest" type="button">Sugerir metas a partir da média</button>
         <label class="check"><input type="checkbox" id="sug-overwrite"> substituir metas já preenchidas</label>
@@ -249,7 +266,7 @@ td input[type="text"] { width: 100%; min-width: 140px; min-height: 32px; padding
         <div class="field"><label for="new-sub">Subcategoria</label><input type="text" id="new-sub" placeholder="ex.: Reserva de emergência"></div>
         <button class="btn" id="btn-add-sub" type="button">Adicionar</button>
       </div>
-      <div class="table-wrap"><table id="plan-table"></table></div>
+      <div class="cf-wrap" id="plan-wrap"><table class="cf" id="plan-table"></table></div>
     </div>
   </section>
 
@@ -603,10 +620,11 @@ function renderControls() {
   sel.innerHTML = `<option value="all">${months.length ? "Todos os meses (" + months.length + ")" : "Todos"}</option>` + months.map(m => `<option value="${m}">${monthLong(m)}</option>`).join("");
   sel.value = S.ui.period;
   document.getElementById("source-label").textContent = S.source ? S.source : "";
-  const scope = document.getElementById("plan-scope");
-  const cur = scope.value || "base";
-  scope.innerHTML = `<option value="base">Todo mês (padrão)</option>` + months.map(m => `<option value="${m}">Só ${monthLong(m)}</option>`).join("");
-  scope.value = [...scope.options].some(o => o.value === cur) ? cur : "base";
+  const years = [...new Set(months.map(m => m.slice(0, 4)).concat(String(new Date().getFullYear())))].sort();
+  const ysel = document.getElementById("plan-year");
+  if (!years.includes(S.ui.year)) S.ui.year = months.length ? months[months.length - 1].slice(0, 4) : years[years.length - 1];
+  ysel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join("");
+  ysel.value = S.ui.year;
   const cats = catsOf(allSubKeys()).sort((a, b) => a.localeCompare(b, "pt"));
   document.getElementById("dl-cats").innerHTML = cats.map(c => `<option value="${esc(c)}">`).join("");
   const txc = document.getElementById("tx-cat"); const tv = txc.value;
@@ -731,44 +749,57 @@ function renderOverview() {
 }
 
 function renderPlan() {
-  const R = realByMonthKey(), months = periodMonths(), am = allMonths();
-  const scope = document.getElementById("plan-scope").value || "base";
+  const R = realByMonthKey(), year = S.ui.year;
+  const ym = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`);
+  const withData = allMonths().filter(m => m.startsWith(year));
+  const lastData = withData[withData.length - 1] || "";
+  const isFuture = m => !withData.includes(m) && m > lastData;
+  const nD = Math.max(1, withData.length);
   const keys = allSubKeys();
   const cats = catsOf(keys).map(c => ({ c, keys: keys.filter(k => splitKey(k).cat === c) }))
-    .map(g => ({ ...g, T: totals(g.keys, months, R) })).sort((a, b) => b.T.real - a.T.real);
-  const nM = Math.max(1, months.length);
-  const realTitle = S.ui.period === "all" ? "Realizado (média/mês)" : "Realizado " + monthLabel(S.ui.period);
-  const inputVal = k => { const v = scope === "base" ? S.plan.base[k]?.meta : S.plan.months[scope]?.[k]?.meta; return v == null ? "" : v; };
-  const ph = k => { if (scope === "base") return ""; const b = S.plan.base[k]?.meta; return b == null ? "" : String(b); };
-  let html = `<thead><tr><th>Categoria / subcategoria</th><th class="num">Média ${am.length} ${am.length === 1 ? "mês" : "meses"}</th><th class="num">${realTitle}</th><th class="num">Meta (mês)</th><th>Uso da meta</th><th class="num">Folga</th></tr></thead><tbody>`;
+    .map(g => ({ ...g, real: totals(g.keys, withData, R).real })).sort((a, b) => b.real - a.real);
+  const folgaTxt = withData.length ? (withData.length === 1 ? monthLabel(withData[0]) : `${monthLabel(withData[0])}–${monthLabel(lastData)}`) : "sem dados";
+  const head1 = `<tr><th class="nm" rowspan="2">Categoria / subcategoria</th><th class="num" rowspan="2" title="Média mensal do realizado nos meses com lançamentos">Média/mês</th><th class="num" rowspan="2" title="Meta padrão: vale para todos os meses sem valor próprio">Meta/mês</th>`
+    + ym.map(m => `<th colspan="2" class="ms${isFuture(m) ? " future" : ""}">${monthLabel(m)}</th>`).join("")
+    + `<th colspan="3" class="yr">Ano ${year}</th></tr>`;
+  const head2 = `<tr>${ym.map(m => `<th class="num ms${isFuture(m) ? " future" : ""}">Meta</th><th class="num${isFuture(m) ? " future" : ""}">Real.</th>`).join("")}<th class="num yr">Meta</th><th class="num">Realizado</th><th class="num" title="Meta menos realizado nos meses com lançamentos">Folga ${folgaTxt}</th></tr>`;
+  const realCell = (ks, m, f) => {
+    const T = totals(ks, [m], R);
+    if (!withData.includes(m)) return `<td class="num${isFuture(m) ? " future" : ""}">${T.real ? fmt0(T.real) : "—"}</td>`;
+    const cls = T.meta == null ? "" : T.metaReal > T.meta ? " over" : " under";
+    const icon = T.meta == null ? "" : T.metaReal > T.meta ? "▲ " : "";
+    return `<td class="num${cls}">${T.real ? `<button class="lnk" type="button" tabindex="-1" ${openAttr({ ...f, months: [m] })}>${icon}${fmt0(T.real)}</button>` : "—"}</td>`;
+  };
+  const yearCells = ks => {
+    const TY = totals(ks, ym, R), TD = totals(ks, withData, R);
+    const folga = TD.meta == null ? null : TD.meta - TD.metaReal;
+    return `<td class="num yr">${fmt0(TY.meta)}</td><td class="num">${fmt0(TY.real)}</td><td class="num${folga == null ? "" : folga < 0 ? " over" : " under"}">${folga == null ? "—" : (folga < 0 ? "▲ −" : "") + fmt0(Math.abs(folga))}</td>`;
+  };
+  let html = `<thead>${head1}${head2}</thead><tbody>`;
   for (const g of cats) {
     const collapsed = !!S.ui.collapsed[g.c];
-    const avgAll = totals(g.keys, am, R).real / Math.max(1, am.length);
-    const T = g.T, real = T.real / nM, metaReal = T.metaReal / nM, meta = T.meta == null ? null : T.meta / nM;
-    const st = status(metaReal, meta), fc = fCat(g.c, months);
-    html += `<tr class="cat-row"><td><button class="toggle" type="button" data-collapse="${esc(g.c)}" aria-expanded="${!collapsed}" aria-label="${collapsed ? "Abrir" : "Fechar"} ${esc(g.c)}">${collapsed ? "▸" : "▾"}</button><button class="lnk" type="button" ${openAttr(fc)}>${esc(g.c)}</button></td><td class="num">${fmt(avgAll)}</td><td class="num"><button class="lnk" type="button" ${openAttr(fc)}>${fmt(real)}</button></td><td class="num">${fmt(meta)}</td><td>${progress(metaReal, meta, st)}</td><td class="num">${meta == null ? "—" : fmt(meta - metaReal)}</td></tr>`;
+    const fc = fCat(g.c, withData.length ? withData : null);
+    const base = g.keys.reduce((a, k) => { const v = S.plan.base[k]?.meta; return v == null || v === "" ? a : (a || 0) + +v; }, null);
+    html += `<tr class="cat-row"><td class="nm"><button class="toggle" type="button" data-collapse="${esc(g.c)}" aria-expanded="${!collapsed}" aria-label="${collapsed ? "Abrir" : "Fechar"} ${esc(g.c)}">${collapsed ? "▸" : "▾"}</button><button class="lnk" type="button" ${openAttr(fc)}>${esc(g.c)}</button></td><td class="num">${fmt0(g.real / nD)}</td><td class="num">${fmt0(base)}</td>`
+      + ym.map(m => `<td class="num ms${isFuture(m) ? " future" : ""}">${fmt0(totals(g.keys, [m], R).meta)}</td>${realCell(g.keys, m, fc)}`).join("")
+      + yearCells(g.keys) + `</tr>`;
     if (collapsed) continue;
-    const subs = g.keys.map(k => ({ k, sub: splitKey(k).sub, T: totals([k], months, R), avgAll: totals([k], am, R).real / Math.max(1, am.length) })).sort((a, b) => b.avgAll - a.avgAll);
-    for (const s of subs) {
-      const real = s.T.real / nM, metaReal = s.T.metaReal / nM, meta = s.T.meta == null ? null : s.T.meta / nM;
-      const st = status(metaReal, meta), fk = fKey(s.k, months);
-      html += `<tr><td style="padding-left:28px"><button class="lnk" type="button" ${openAttr(fk)}>${esc(s.sub)}</button></td><td class="num">${fmt(s.avgAll)}</td>
-        <td class="num"><button class="lnk" type="button" ${openAttr(fk)}>${fmt(real)}</button></td>
-        <td class="num"><input type="number" step="10" min="0" inputmode="decimal" id="m-${esc(s.k)}" data-k="${esc(s.k)}" value="${inputVal(s.k)}" placeholder="${ph(s.k)}" aria-label="Meta ${esc(s.sub)}"></td>
-        <td>${progress(metaReal, meta, st)}</td><td class="num">${meta == null ? "—" : fmt(meta - metaReal)}</td></tr>`;
+    const subs = g.keys.map(k => ({ k, sub: splitKey(k).sub, real: totals([k], withData, R).real })).sort((a, b) => b.real - a.real);
+    for (const sb of subs) {
+      const fk = fKey(sb.k, withData.length ? withData : null), kid = esc(sb.k);
+      const bv = S.plan.base[sb.k]?.meta;
+      html += `<tr><td class="nm" style="padding-left:28px"><button class="lnk" type="button" ${openAttr(fk)}>${esc(sb.sub)}</button></td><td class="num">${fmt0(sb.real / nD)}</td>
+        <td class="num"><input type="number" step="10" min="0" inputmode="decimal" id="m-${kid}-base" data-k="${kid}" data-m="base" value="${bv ?? ""}" aria-label="Meta mensal padrão de ${esc(sb.sub)}"></td>`
+        + ym.map(m => { const ov = S.plan.months[m]?.[sb.k]?.meta; return `<td class="num ms"><input type="number" step="10" min="0" inputmode="decimal" id="m-${kid}-${m}" data-k="${kid}" data-m="${m}" value="${ov ?? ""}" placeholder="${bv ?? ""}" class="${ov != null ? "ovr" : ""}" aria-label="Meta de ${esc(sb.sub)} em ${monthLong(m)}"></td>${realCell([sb.k], m, fk)}`; }).join("")
+        + yearCells([sb.k]) + `</tr>`;
     }
   }
-  // linha de total: todas as categorias somadas
-  const TT = totals(keys, months, R), avgAllT = totals(keys, am, R).real / Math.max(1, am.length);
-  const realT = TT.real / nM, metaRealT = TT.metaReal / nM, metaT = TT.meta == null ? null : TT.meta / nM;
-  const fAll = { title: "Todas as despesas", eyebrow: "Total", keys: null, months };
-  html += `</tbody><tfoot><tr class="total-row"><td><button class="lnk" type="button" ${openAttr(fAll)}>Total</button></td><td class="num">${fmt(avgAllT)}</td><td class="num"><button class="lnk" type="button" ${openAttr(fAll)}>${fmt(realT)}</button></td><td class="num">${fmt(metaT)}</td><td>${progress(metaRealT, metaT, status(metaRealT, metaT))}</td><td class="num">${metaT == null ? "—" : fmt(metaT - metaRealT)}</td></tr></tfoot>`;
+  const fAll = { title: "Todas as despesas", eyebrow: "Total", keys: null, months: withData.length ? withData : null };
+  const TB = keys.reduce((a, k) => { const v = S.plan.base[k]?.meta; return v == null || v === "" ? a : (a || 0) + +v; }, null);
+  html += `</tbody><tfoot><tr class="total-row"><td class="nm"><button class="lnk" type="button" ${openAttr(fAll)}>Total</button></td><td class="num">${fmt0(totals(keys, withData, R).real / nD)}</td><td class="num">${fmt0(TB)}</td>`
+    + ym.map(m => `<td class="num ms${isFuture(m) ? " future" : ""}">${fmt0(totals(keys, [m], R).meta)}</td>${realCell(keys, m, fAll)}`).join("")
+    + yearCells(keys) + `</tr></tfoot>`;
   document.getElementById("plan-table").innerHTML = html;
-}
-function progress(real, meta, st) {
-  if (meta == null) return pill(st);
-  const pct = meta > 0 ? real / meta : (real > 0 ? 2 : 0);
-  return `<div class="cell-prog"><div class="bar ${st.cls}" title="${Math.round(pct * 100)}% da meta"><i style="width:${Math.min(100, pct * 100)}%"></i></div><span class="pill ${st.cls}"><span aria-hidden="true">${st.icon}</span>${Math.round(pct * 100)}%</span></div>`;
 }
 
 let txLimit = 150;
@@ -933,14 +964,15 @@ document.getElementById("file-json").addEventListener("change", async e => {
 });
 document.getElementById("plan-table").addEventListener("change", e => {
   const i = e.target; if (!i.dataset.k) return;
-  const scope = document.getElementById("plan-scope").value || "base";
-  const target = scope === "base" ? S.plan.base : (S.plan.months[scope] ||= {});
+  const m = i.dataset.m;
+  const target = m === "base" ? S.plan.base : (S.plan.months[m] ||= {});
   const o = target[i.dataset.k] ||= {};
   if (i.value === "") delete o.meta; else o.meta = Math.max(0, +i.value);
-  save(); F.length = 0; renderPlan();
-  document.getElementById(i.id)?.focus();
+  save();
+  // espera o foco ir para o próximo campo (Tab) antes de redesenhar, e devolve o foco a ele
+  setTimeout(() => { const id = document.activeElement?.id; F.length = 0; renderPlan(); if (id) document.getElementById(id)?.focus(); });
 });
-document.getElementById("plan-scope").addEventListener("change", () => { F.length = 0; renderPlan(); });
+document.getElementById("plan-year").addEventListener("change", e => { S.ui.year = e.target.value; save(); F.length = 0; renderPlan(); });
 document.getElementById("btn-suggest").addEventListener("click", suggest);
 document.getElementById("btn-add-sub").addEventListener("click", () => {
   const c = document.getElementById("new-cat").value.trim(), s = document.getElementById("new-sub").value.trim();
